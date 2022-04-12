@@ -3,7 +3,7 @@
 
 
 ### Homework 1
-[HW1] (files/HW1.html)
+[HW1](files/HW1.html)
 ### Homework 2
 
 
