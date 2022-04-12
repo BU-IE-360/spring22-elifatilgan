@@ -200,4 +200,4 @@ The aim of this paper was to analyze the relationship of chosen datasets with ti
 
 -   There is lag between search for "zam" and "iskur" in GoogleTrends data.
 
-For R file click here
+For R file click [here.](https://github.com/BU-IE-360/spring22-elifatilgan/blob/gh-pages/files/hw1.R)
