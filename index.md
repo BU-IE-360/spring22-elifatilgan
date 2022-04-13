@@ -3,7 +3,7 @@
 
 
 ### Homework 1
-Here is [HW1](https://github.com/BU-IE-360/spring22-elifatilgan/files/HW1.html)
+Here is [HW1](/files/HW1.html)
 ### Homework 2
 
 
