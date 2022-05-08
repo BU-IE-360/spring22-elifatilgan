@@ -1,0 +1,171 @@
+---
+title: "HW2"
+output: html_document
+---
+
+# Homework 2: Forecasting With Regression
+
+## 1) Introduction
+
+In this homework, our ultimate task is to forecast the sales of UGS (Unleaded gasoline sale) for every quarter of 2007 by using time series regression methods. Our data contain quarterly gasoline and diesel sales (in 1000 m3) of a major distributor between 2000 and 2006, and a number of potential independent variables.The aim is to first analyze statistical characteristics of the UGS data and then to form our linear regression model in order to forecast the sales for 2007.
+
+## 2) Data Gathering and Manipulations
+
+```{r echo=TRUE, include=TRUE, warning=FALSE, message=FALSE}
+#Necessary libraries, please install them beforehand if they are not already installed.
+library(xlsx)
+library(lubridate)
+library(zoo)
+library(ggplot2)
+library(RcppRoll)
+library(GGally)
+library(skimr)
+library(forecast)
+library(dplyr)
+library(data.table)
+setwd("~/R/data")
+df= read.csv("IE360_Spring22_HW2_data.csv", header=TRUE)
+for(i in c(2,4,7,9,10,11)) {
+  df[,i]=as.numeric(df[,i])
+}
+colnames(df)= c("Quarter","UGS","RNUV","NLPG","PU","PG","NUGV","NDGV","GNPA","GNPC","GNP")
+df$Quarter= as.Date(as.yearqtr(df$Quarter,format="%Y_Q%q"))
+head(df)
+```
+
+Explanation of the variables:
+
+**UGS:** Unleaded gasoline sale in a given quarter
+
+**RNUV:** An index indicating the rate of new unleaded gasoline using vehicles being added to the traffic in a quarter
+
+**PU:** Average price (adjusted with an index) of a liter of unleaded gasoline in a quarter
+
+**PG:** Average price (adjusted with an index) of a liter of diesel gasoline in a quarter
+
+**NUGV:** Number of unleaded gasoline using vehicles in the traffic
+
+**NDGV:** Number of diesel gasoline using vehicles in the traffic (per 1000 people)
+
+**GNPA:** Agriculture component of Gross National Product (adjusted with an index)
+
+**GNPC:** Commerce component of Gross National Product (adjusted with an index)
+
+**GNP:** Grand total for GNP (agriculture, commerce and other components total).
+
+## 3) Data Visualizations Before Regression
+
+```{r echo=FALSE, include=TRUE, warning=FALSE, message=FALSE}
+ggplot(df, aes(x=Quarter,y=UGS))+geom_line()+geom_point()+
+  labs(title = "Figure 1: Unleaded Gasoline Sales Over the Quarters")+theme_classic()+scale_x_date(date_breaks = "1 year", date_labels = "%Y")
+```
+
+UGS values over the quarters show us there is an overall declining trend with respect to time. It also reveals that, there is a sudden sharp peak in the third quarter of every year. This 4-quarters gap between similar behavior of UGS hints data contains yearly seasonality.
+
+```{r echo=FALSE, include=TRUE, warning=FALSE, message=FALSE}
+mean_series=roll_mean(df$UGS[1:28],4,align='left')
+var_series=roll_var(df$UGS[1:28],4,align='left')
+plot(mean_series,
+     type='l',col='red',
+     xlab = "time (t)",
+     ylab = "Rolling Mean",
+     main = "Mean series")
+
+plot(var_series,
+     type='l',col='red',
+     xlab = "time (t)",
+     ylab = "Rolling Variance",
+     main = "Variance series")
+```
+
+If we look at the rolling mean and rolling variance series of the UGS we see that it clearly is not stationary with respect to its mean. However, we can talk about stationarity in time series with respect to variance. There is not a clear sign to indicate UGS is not stationary with respect to variance.
+
+```{r echo=FALSE, include=TRUE, warning=FALSE, message=FALSE}
+acf(df$UGS,lag.max=12,na.action=na.pass)
+```
+
+From the graph we see that there is strong autocorrelation at lag 1 and lag 4. We also see that autocorrelation at multiples of 4 is larger than the neighboring lags. This strengthens our suspicions of 4-period seasonality. On the other hand, autocorrelation at lag 1 hints the existence of trend which we saw in Figure 1.
+
+## 4) Model Building for Linear Regression
+
+To not start from absolute zero, I used the ggpairs function to check which independent variables have the strongest correlation with UGS. In addition, as mentioned above, I added the seasonality variable called Q.
+
+```{r echo=TRUE, include=TRUE, warning=FALSE, message=FALSE}
+ggpairs(df)
+Q=seq(1,4,by=1)
+df=cbind(df,Q)
+model0 =lm(UGS~Quarter+NLPG+NUGV+PG+PU+GNPA+NDGV+as.factor(Q),data=df)
+summary(model0)
+checkresiduals(model0$residuals)
+```
+
+Then, if we check the first model we see that we have a good p-value on F test and a great Adjusted R-squared value however there are many insignificant independent variables in the model. Biggest issue, however, is that there is an autocorrelation at lag 1 in residuals.
+
+```{r echo=TRUE, include=TRUE, warning=FALSE, message=FALSE}
+model1=lm(UGS~NUGV+as.factor(Q),data=df)
+summary(model1)
+checkresiduals(model1$residuals)
+```
+
+From there, I build my next model which only included significant independent variables of the first model. However, this approach worsened my adjusted R-square value and autocorrelations of residuals.
+
+```{r echo=TRUE, include=TRUE, warning=FALSE, message=FALSE}
+model2 =lm(UGS~as.factor(Q)+NLPG+NUGV+PU+NDGV,data=df)
+summary(model2)
+checkresiduals(model2$residuals)
+```
+
+For model2, I added some of those independent variables from model0 which helped with my model. However, the issues with residuals persisted.
+
+```{r echo=TRUE, include=TRUE, warning=FALSE, message=FALSE}
+df$NUGVlag1=lag(df$NUGV,1)
+model3=lm(UGS~as.factor(Q)+NDGV+NUGVlag1+NUGV+PU,data=df)
+summary(model3)
+checkresiduals(model3$residuals)
+```
+
+Because the time series was not stationary with respect to mean and showed great autocorrelation at lag 1, I tried several lag 1 variables of the independent variables that was in model2. Model3 is one of the examples, even though the autocorellation at lag 1 got better, it is still not inside the limits.
+
+```{r echo=TRUE, include=TRUE, warning=FALSE, message=FALSE}
+df$UGSlag1=lag(df$UGS,1)
+model4 =lm(UGS~as.factor(Q)+NDGV+UGSlag1+NUGV+PU,data=df)
+summary(model4)
+checkresiduals(model4$residuals)
+mean = mean(model4$residuals)
+paste("Mean of the residuals:",mean)
+model= model4
+```
+
+Lastly, I added the lag 1 variable of the UGS itself which convinced me that the model is good enough. Even though UGSlag1 variable is not significant, model4 has a great adjusted R-squared value and p-value. In addition, mean of the residuals is practically zero and the shape of the distribution strongly resembles normal distribution. Most importantly, there is no autocorrelation at any lag for the residuals. Due to these reasons, I decided to continue on with this model.
+
+## 5) Forecasting With Regression
+
+Before moving on with forecasting, I wanted to show what the model predicts for the quarters we already have the data on. Thus, I plotted predicted UGS values with the UGS data in the same graph. As can be seen below, model works fairly well.
+
+```{r echo=FALSE, include=TRUE, warning=FALSE, message=FALSE}
+tmp=copy(df)
+tmp$actual=df$UGS
+tmp$predicted=predict(model,tmp)
+ggplot(tmp ,aes(x=Quarter))+
+  geom_line(aes(y=actual,color='real')) + 
+  geom_line(aes(y=predicted,color='predicted'))+
+  labs(title = "Figure 2: Predicted vs Real UGS Values Oer the Quarters",y="UGS (1000 m3)" )
+```
+
+```{r echo=TRUE, include=TRUE, warning=FALSE, message=FALSE}
+set2007= df[29:32,c("Q","NDGV","UGSlag1","NUGV","PU")]
+prediction = c(0,0,0,0)
+for(i in 1:4) {
+  prediction[i] = predict(model,newdata = set2007[i,])
+  if(i<4){set2007[i+1,"UGSlag1"] = prediction[i] }
+}
+prediction
+```
+
+At the end, I forecasted 2007 UGS values for each quarter. Since the model needs UGSlag1 data, I used my prediction of the previous quarter for quarters 2,3 & 4.
+
+## 6) Conclusion
+
+The aim of this homework was to analyze UGS data with respect to several independent variables and build a model of regression in order to be used for forecasting. In the end, my selected model suggested that UGS depends on NDGV,NUGV, and PU. In addition, it included seasonality, trend and lagged variables.
+
+For R file click [here.](https://github.com/BU-IE-360/spring22-elifatilgan/blob/gh-pages/files/hw2.R)
