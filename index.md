@@ -8,6 +8,6 @@ Here is [HW1](/files/HW1.html)
 Here is [HW2](/files/HW2.html)
 
 ### Project
-Here is [Project](/files/proje-son.html)
+Here is [Project](/files/project.html)
 ### Code
 For the code click [HERE](/files/project.R) 
