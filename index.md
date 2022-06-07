@@ -9,4 +9,4 @@ Here is [HW2](/files/HW2.html)
 
 ### Project
 Here is [Project](/files/proje-son.html)
-Click [HERE](/files/proje son (1).Rmd) for the code
+For the code click [HERE](/files/proje son (1).Rmd) 
